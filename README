@@ -1,0 +1,9 @@
+Lazy Execute : This is jQuery plugin.
+   When some elements available on display area, the callback get executed.
+
+// e.g.
+$(function(){
+    $('a').lazyExecute(function(){
+        console.log(this.attr("href"));
+    });
+});
