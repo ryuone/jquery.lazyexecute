@@ -28,33 +28,44 @@
             var right = _window.width() + _window.scrollLeft();
             return right <= elem.offset().left;
         },
-        bindLazyExecute : function(){
-            var data = $(window).data(dataStoreKey);
-            var elems = $(data.elems);
-            $(window).bind('scroll', function(e){
-                elems.each(function(){
-                    if( !$.aboveTheScreen(this) &&
-                        !$.belowTheScreen(this) &&
-                        !$.leftTheScreen(this) &&
-                        !$.rightTheScreen(this) ) {
-                        data.callback.apply(this, e);
-                    }
-                });
+        _lazyexecute : function(e){
+            e.data.elems.each(function(){
+                if( !$.aboveTheScreen(this) &&
+                    !$.belowTheScreen(this) &&
+                    !$.leftTheScreen(this) &&
+                    !$.rightTheScreen(this) ) {
+                    e.data.storeddata.callback.apply(this, e);
+                }
             });
-            $(window).trigger('scroll');
+        },
+        unbindLazyExecute : function(){
+        },
+        bindLazyExecute : function(){
+            var data = _window.data(dataStoreKey);
+            var elems = $(data.elems);
+            _window.bind('scroll', {storeddata:data, elems:elems}, this._lazyexecute);
+            _window.trigger('scroll');
         }
     });
     $.fn.extend({
         lazyExecute : function(callback){
-            var data = $(window).data(dataStoreKey);
+            var data = _window.data(dataStoreKey);
             if(!data){ data = {elems:[], callback:null}; }
 
             this.each(function(){
                 data.elems.push($(this));
             });
             data.callback = callback;
-            $(window).data(dataStoreKey, data);
+            _window.data(dataStoreKey, data);
             $.bindLazyExecute();
+            return this;
         }
     });
 })(jQuery, window);
+
+// Local Variables:
+// indent-tabs-mode: nil
+// tab-width: 4
+// ruby-indent-level: 4
+// End:
+// vim: ts=4
