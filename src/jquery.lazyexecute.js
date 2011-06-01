@@ -13,20 +13,16 @@
     var _window = $(window);
     $.extend({
         aboveTheScreen : function(elem){
-            var top = _window.scrollTop();
-            return top >= elem.offset().top + elem.height();
+            return _window.scrollTop() >= elem.offset().top + elem.height();
         },
         belowTheScreen : function(elem){
-            var bottom = _window.height() + _window.scrollTop();
-            return bottom <= elem.offset().top;
+            return (_window.height() + _window.scrollTop()) <= elem.offset().top;
         },
         leftTheScreen : function(elem){
-            var left = _window.scrollLeft();
-            return left >= elem.offset().left + elem.width();
+            return _window.scrollLeft() >= elem.offset().left + elem.width();
         },
         rightTheScreen : function(elem){
-            var right = _window.width() + _window.scrollLeft();
-            return right <= elem.offset().left;
+            return (_window.width() + _window.scrollLeft()) <= elem.offset().left;
         },
         _lazyexecute : function(e){
             e.data.elems.each(function(){
@@ -38,26 +34,35 @@
                 }
             });
         },
+        getLazyExecuteTargetElems : function(){
+            var storedData = _window.data(dataStoreKey);
+            if(!storedData){
+                return [];
+            }else{
+                return storedData.elems;
+            }
+        },
         unbindLazyExecute : function(){
-            var data = $(window).data(dataStoreKey);
+            _window.removeData(dataStoreKey);
+            _window.unbind('scroll', this._lazyexecute);
         },
         bindLazyExecute : function(){
-            var data = $(window).data(dataStoreKey);
+            var data = _window.data(dataStoreKey);
             var elems = $(data.elems);
-            $(window).bind('scroll', {storeddata:data, elems:elems}, this._lazyexecute);
-            $(window).trigger('scroll');
+            _window.bind('scroll', {storeddata:data, elems:elems}, this._lazyexecute);
+            _window.trigger('scroll');
         }
     });
     $.fn.extend({
         lazyExecute : function(callback){
-            var data = $(window).data(dataStoreKey);
+            var data = _window.data(dataStoreKey);
             if(!data){ data = {elems:[], callback:null}; }
 
             this.each(function(){
                 data.elems.push($(this));
             });
             data.callback = callback;
-            $(window).data(dataStoreKey, data);
+            _window.data(dataStoreKey, data);
             $.bindLazyExecute();
             return this;
         }
