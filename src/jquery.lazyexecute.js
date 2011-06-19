@@ -11,7 +11,17 @@
 (function($, window){
     var dataStoreKey = "lazyExecute";
     var _window = $(window);
-    $.extend({
+    var dataCache = {};
+    var elemEventStop = "stop";
+    var elemEventContinue = "continue";
+
+    var LazyExecute = function(datakey){
+        this.datakey = datakey;
+        this.bindFunction = Function.bind ? this._lazyexecute.bind(this) : (function(fn,self){
+            return function(){fn.apply(self, arguments);};
+        }(this._lazyexecute, this));
+    };
+    LazyExecute.prototype = {
         aboveTheScreen : function(elem){
             return _window.scrollTop() >= elem.offset().top + elem.height();
         },
@@ -25,17 +35,27 @@
             return (_window.width() + _window.scrollLeft()) <= elem.offset().left;
         },
         _lazyexecute : function(e){
-            e.data.elems.each(function(){
-                if( !$.aboveTheScreen(this) &&
-                    !$.belowTheScreen(this) &&
-                    !$.leftTheScreen(this) &&
-                    !$.rightTheScreen(this) ) {
-                    e.data.storeddata.callback.apply(this, e);
+            var self = this;
+            var data = _window.data(this.datakey);
+            var stopflg = false;
+            $(data.elems).each(function(index, elem){
+                var celem = $(this);
+                if( !self.aboveTheScreen(celem) &&
+                    !self.belowTheScreen(celem) &&
+                    !self.leftTheScreen(celem) &&
+                    !self.rightTheScreen(celem) ) {
+                    if( data.callback.apply(celem, e) === elemEventStop ){
+                        stopflg = true;
+                        delete data.elems[index];
+                    }
                 }
             });
+            if(stopflg){
+                this.stopExecute();
+            }
         },
         getLazyExecuteTargetElems : function(){
-            var storedData = _window.data(dataStoreKey);
+            var storedData = _window.data(this.datakey);
             if(!storedData){
                 return [];
             }else{
@@ -43,29 +63,61 @@
             }
         },
         unbindLazyExecute : function(){
-            _window.removeData(dataStoreKey);
-            _window.unbind('scroll', this._lazyexecute);
+            delete dataCache[this.datakey];
+            _window.removeData(this.datakey);
+            _window.unbind('scroll', this.bindFunction);
         },
         bindLazyExecute : function(){
-            var data = _window.data(dataStoreKey);
-            var elems = $(data.elems);
-            _window.bind('scroll', {storeddata:data, elems:elems}, this._lazyexecute);
+            _window.bind('scroll', this.bindFunction);
             _window.trigger('scroll');
+        },
+        stopExecute : function(stoplist){
+            var data = _window.data(this.datakey).elems;
+
+            for(var len=data.length-1; len>=0; len--){
+                if(data[len] == null){
+                    data.splice(len,1);
+                }
+            }
         }
-    });
+    };
+
     $.fn.extend({
-        lazyExecute : function(callback){
-            var data = _window.data(dataStoreKey);
-            if(!data){ data = {elems:[], callback:null}; }
+        lazyExecute : function(){
+            var callback = arguments[0] || null, datakey;
+            if(typeof callback === "function"){
+                datakey  = arguments[1] || dataStoreKey;
+            }
+            if(typeof callback !== "function"){
+                callback = null;
+                datakey  = arguments[0] || dataStoreKey;
+            }
+
+            var data = _window.data(datakey);
+            if(!data){ data = {elems:[], callback:null};}
 
             this.each(function(){
-                data.elems.push($(this));
+                if($.inArray(this, data.elems) === -1){
+                    data.elems.push(this);
+                }
             });
-            data.callback = callback;
-            _window.data(dataStoreKey, data);
-            $.bindLazyExecute();
-            return this;
+            if(callback !== null && data.callback === null){
+                data.callback = callback;
+            }
+            _window.data(datakey, data);
+
+            var lazyexecute = dataCache[datakey];
+            if(!lazyexecute){
+                lazyexecute = new LazyExecute(datakey);
+                lazyexecute.bindLazyExecute();
+                dataCache[datakey] = lazyexecute;
+            }
+            return lazyexecute;
         }
+    });
+    $.extend($.fn.lazyExecute,{
+        STOP: elemEventStop,
+        CONTINUE: elemEventContinue
     });
 })(jQuery, window);
 
