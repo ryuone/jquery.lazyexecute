@@ -14,6 +14,7 @@
     var dataCache = {};
     var elemEventStop = "stop";
     var elemEventContinue = "continue";
+    var version = "0.0.1";
 
     var LazyExecute = function(datakey){
         this.datakey = datakey;
@@ -22,6 +23,9 @@
         }(this._lazyexecute, this));
     };
     LazyExecute.prototype = {
+        version : function(){
+            return version;
+        },
         aboveTheScreen : function(elem){
             return _window.scrollTop() >= elem.offset().top + elem.height();
         },
