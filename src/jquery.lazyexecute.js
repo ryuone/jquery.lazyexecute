@@ -75,7 +75,7 @@
             _window.bind('scroll', this.bindFunction);
             _window.trigger('scroll');
         },
-        stopExecute : function(stoplist){
+        stopExecute : function(){
             var data = _window.data(this.datakey).elems;
 
             for(var len=data.length-1; len>=0; len--){
