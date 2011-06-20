@@ -1,7 +1,17 @@
 do (jQuery, window) ->
-    dataStoreKey = "lazyExecute"
+    dataStoreKey = "lazyExecute";
     _window = jQuery(window)
-    jQuery.extend
+    dataCache = {};
+    elemEventStop = "stop";
+    elemEventContinue = "continue";
+    version = "0.0.1";
+
+    class LazyExecute
+        constructor: (datakey) ->
+            @datakey = datakey
+            @bindFunction = () => @_lazyexecute this
+        version: ->
+            version;
         aboveTheScreen: (elem) ->
             _window.scrollTop() >= elem.offset().top + elem.height()
         belowTheScreen: (elem) ->
@@ -11,39 +21,72 @@ do (jQuery, window) ->
         rightTheScreen: (elem) ->
             (_window.width() + _window.scrollLeft()) <= elem.offset().left
         _lazyexecute: (e) ->
-            e.data.elems.each ->
-                if not $.aboveTheScreen(this) &&
-                   not $.belowTheScreen(this) &&
-                   not $.leftTheScreen(this) &&
-                   not $.rightTheScreen(this)
-                    e.data.storeddata.callback.apply(this, e);
+            self = this;
+            data = _window.data(this.datakey);
+            stopflg = false;
+            $(data.elems).each (index, elem) ->
+                celem = $(this);
+                if not self.aboveTheScreen(celem) &&
+                   not self.belowTheScreen(celem) &&
+                   not self.leftTheScreen(celem) &&
+                   not self.rightTheScreen(celem)
+                    if data.callback.apply(celem, e) == elemEventStop
+                        stopflg = true;
+                        delete data.elems[index];
+            if stopflg
+                @stopExecute()
         getLazyExecuteTargetElems: ->
-            storedData = _window.data(dataStoreKey);
+            storedData = _window.data(this.datakey);
             if not storedData
                 return [];
             else
                 return storedData.elems;
         unbindLazyExecute : ->
-            _window.removeData(dataStoreKey)
-            _window.unbind 'scroll', this._lazyexecute
+            delete dataCache[@datakey]
+            _window.removeData(@datakey)
+            _window.unbind 'scroll', @bindFunction
         bindLazyExecute: ->
-            data = _window.data dataStoreKey
-            elems = $(data.elems)
-            _window.bind 'scroll', storeddata:data, elems:elems, this._lazyexecute;
-            _window.trigger('scroll')
+            _window.bind 'scroll', @bindFunction;
+            _window.trigger 'scroll'
+        stopExecute: ->
+            data = _window.data(this.datakey).elems
+            for len in [data.length-1..0]
+                if not data[len]?
+                    data.splice len, 1
             return null
 
     jQuery.fn.extend
-        lazyExecute: (callback) ->
-            data = _window.data(dataStoreKey)
-            if not datau
-                data =
-                    elems:[]
-                    callback:null
-            this.each ->
-                data.elems.push($(this));
-            data.callback = callback
-            _window.data(dataStoreKey, data)
-            $.bindLazyExecute()
-            return this
-    return null
+        lazyExecute: () ->
+            callback = arguments[0] || null
+            if typeof callback == "function"
+                datakey  = arguments[1] || dataStoreKey;
+            if typeof callback != "function"
+                callback = null
+                datakey  = arguments[0] || dataStoreKey
+
+            data = _window.data(datakey);
+            if !data
+                data = {elems:[], callback:null}
+
+            @each ->
+                if $.inArray(this, data.elems) == -1
+                    data.elems.push this;
+
+            if callback != null && data.callback == null
+                data.callback = callback
+
+            _window.data datakey, data
+
+            lazyexecute = dataCache[datakey]
+            if !lazyexecute
+                lazyexecute = new LazyExecute(datakey);
+                lazyexecute.bindLazyExecute();
+                dataCache[datakey] = lazyexecute;
+
+            return lazyexecute;
+
+    jQuery.extend jQuery.fn.lazyExecute,
+        STOP: elemEventStop,
+        CONTINUE: elemEventContinue
+
+    return null;
