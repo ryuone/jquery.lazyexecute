@@ -15,12 +15,15 @@
     var elemEventStop = "stop";
     var elemEventContinue = "continue";
     var version = "0.0.1";
+    var __bind = function(fn,self){
+        return function(){fn.apply(self, arguments);};
+    };
+    var stopflg;
 
-    var LazyExecute = function(datakey){
+    var LazyExecute = function(lazyExecuteType, datakey){
+        this.lazyExecuteType = lazyExecuteType;
         this.datakey = datakey;
-        this.bindFunction = Function.bind ? this._lazyexecute.bind(this) : (function(fn,self){
-            return function(){fn.apply(self, arguments);};
-        }(this._lazyexecute, this));
+        this.bindFunction = Function.bind ? this.callbackExecute.bind(this) : __bind(this.callbackExecute, this);
     };
     LazyExecute.prototype = {
         version : function(){
@@ -38,21 +41,82 @@
         rightTheScreen : function(elem){
             return (_window.width() + _window.scrollLeft()) <= elem.offset().left;
         },
-        _lazyexecute : function(e){
+        isInDisplayArea : function(self, celem){
+            if( !self.aboveTheScreen(celem) &&
+                !self.belowTheScreen(celem) &&
+                !self.leftTheScreen(celem) &&
+                !self.rightTheScreen(celem) ) {
+                return true;
+            }
+            return false;
+        },
+        procEnterDisplayArea : function(self, celem, data, e, index){
+            if( self.isInDisplayArea(self, celem) === true &&
+                (data.posState[index] === null || data.posState[index] === false)){
+                if( data.callback.apply(celem, e) === elemEventStop ){
+                    stopflg = true;
+                    delete data.elems[index];
+                }
+                data.posState[index] = true;
+            }else{
+                data.posState[index] = false;
+            }
+        },
+        procLeaveDisplayArea : function(self, celem, data, e, index){
+            if( self.isInDisplayArea(self, celem) !== true &&
+                (data.posState[index] === null || data.posState[index] === true)){
+                if( data.callback.apply(celem, e) === elemEventStop ){
+                    stopflg = true;
+                    delete data.elems[index];
+                }
+                data.posState[index] = false;
+            }else{
+                data.posState[index] = true;
+            }
+        },
+        procInDisplayArea : function(self, celem, data, e, index){
+            if( self.isInDisplayArea(self, celem) === true ){
+                if( data.callback.apply(celem, e) === elemEventStop ){
+                    stopflg = true;
+                    delete data.elems[index];
+                }
+                data.posState[index] = true;
+            }else{
+                data.posState[index] = false;
+            }
+        },
+        procOutDisplayArea : function(self, celem, data, e, index){
+            if( self.isInDisplayArea(self, celem) !== true ){
+                if( data.callback.apply(celem, e) === elemEventStop ){
+                    stopflg = true;
+                    delete data.elems[index];
+                }
+                data.posState[index] = false;
+            }else{
+                data.posState[index] = true;
+            }
+        },
+        callbackExecute : function(e){
             var self = this;
             var data = _window.data(this.datakey);
-            var stopflg = false;
+            stopflg = false;
             $(data.elems).each(function(index, elem){
                 var celem = $(this);
-                if( !self.aboveTheScreen(celem) &&
-                    !self.belowTheScreen(celem) &&
-                    !self.leftTheScreen(celem) &&
-                    !self.rightTheScreen(celem) ) {
-                    if( data.callback.apply(celem, e) === elemEventStop ){
-                        stopflg = true;
-                        delete data.elems[index];
-                    }
+                switch(self.lazyExecuteType){
+                  case $.lazyExecute.EnterDisplayArea:
+                    self.procEnterDisplayArea(self, celem, data, e, index);
+                    break;
+                  case $.lazyExecute.LeaveDisplayArea:
+                    self.procLeaveDisplayArea(self, celem, data, e, index);
+                    break;
+                  case $.lazyExecute.InDisplayArea:
+                    self.procInDisplayArea(self, celem, data, e, index);
+                    break;
+                  case $.lazyExecute.OutDisplayArea:
+                    self.procOutDisplayArea(self, celem, data, e, index);
+                    break;
                 }
+
             });
             if(stopflg){
                 this.stopExecute();
@@ -86,23 +150,48 @@
         }
     };
 
+    $.extend({
+        lazyExecute : {
+            LeaveDisplayArea  : "LeaveDisplayArea",
+            EnterDisplayArea  : "EnterDisplayArea",
+            InDisplayArea     : "InDisplayArea",
+            OutDisplayArea    : "OutDisplayArea"
+        }
+    });
+
     $.fn.extend({
         lazyExecute : function(){
-            var callback = arguments[0] || null, datakey;
+            var callback, datakey,i,
+                lazyExecuteType = arguments[0];
+
+            switch(lazyExecuteType){
+              case $.lazyExecute.LeaveDisplayArea:
+              case $.lazyExecute.EnterDisplayArea:
+              case $.lazyExecute.InDisplayArea:
+              case $.lazyExecute.OutDisplayArea:
+                i = 1;
+                break;
+            default:
+                i = 0;
+                lazyExecuteType = $.lazyExecute.InDisplayArea;
+                break;
+            }
+            callback = arguments[i] || null;
             if(typeof callback === "function"){
-                datakey  = arguments[1] || dataStoreKey;
+                datakey  = arguments[i+1] || dataStoreKey;
             }
             if(typeof callback !== "function"){
                 callback = null;
-                datakey  = arguments[0] || dataStoreKey;
+                datakey  = arguments[i] || dataStoreKey;
             }
 
             var data = _window.data(datakey);
-            if(!data){ data = {elems:[], callback:null};}
+            if(!data){ data = {elems:[], callback:null, posState:[]};}
 
             this.each(function(){
                 if($.inArray(this, data.elems) === -1){
                     data.elems.push(this);
+                    data.posState.push(null);
                 }
             });
             if(callback !== null && data.callback === null){
@@ -112,7 +201,7 @@
 
             var lazyexecute = dataCache[datakey];
             if(!lazyexecute){
-                lazyexecute = new LazyExecute(datakey);
+                lazyexecute = new LazyExecute(lazyExecuteType, datakey);
                 lazyexecute.bindLazyExecute();
                 dataCache[datakey] = lazyexecute;
             }
