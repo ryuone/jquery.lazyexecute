@@ -26,10 +26,29 @@ $(function(){
     // lze !== lze3
     // This is lazyExecute instance but different from lze and lze2.
     var lze3 = $('div').lazyExecute(function(){
-        console.log(this)
+        console.log(this);
         // this mean execute this callback for element just once.
         return this.lazyExecute.STOP;
     }, "dataSrorekey");
+
+    // if elements is inside the display area, execute function.
+    lze = $('a').lazyExecute($.lazyExecute.InDisplayArea, function(){
+        console.log(this.attr("href"));
+    });
+    // if elements is outside the display area, execute function.
+    lze = $('a').lazyExecute($.lazyExecute.OutDisplayArea, function(){
+        console.log(this.attr("href"));
+    });
+    // if elements enter into the display area, execute function.
+    // But if elements inside display area already, execute function.
+    lze = $('a').lazyExecute($.lazyExecute.LeaveDisplayArea, function(){
+        console.log(this.attr("href"));
+    });
+    // if elements leave from the display area, execute function.
+    // But if elements outside display area already, execute function.
+    lze = $('a').lazyExecute($.lazyExecute.EnterDisplayArea, function(){
+        console.log(this.attr("href"));
+    });
 });
 
 lazyExecute method trigger a scroll event on window.
